@@ -1,8 +1,6 @@
-#[macro_use]
 extern crate failure;
 
 use failure::{Error, ResultExt};
-use std::convert::From;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -40,7 +38,7 @@ impl Instruction {
             "F" => Some(Instruction::F(value.parse().unwrap())),
             "R" => Some(Instruction::F(value.parse().unwrap())),
             _ => {
-                panic!("UNKNOWN CODE: {} => {}", typ, value);
+                eprintln!("UNKNOWN CODE: {} => {}", typ, value);
                 None
             }
         }
