@@ -1,9 +1,11 @@
+#![feature(test)]
 extern crate failure;
+extern crate test;
 
 use failure::{Error, ResultExt};
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::path::Path;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -130,14 +132,10 @@ impl Program {
     }
 }
 
-fn main() {
-    let f = File::open("data/raw_gcode.NC").expect("opening file");
-    let reader = BufReader::new(f);
-
+pub fn parse_string(s: &str) -> Program {
     let mut program = Program::new();
-
-    for line in reader.lines() {
-        let mut text = line.unwrap();
+    for line in s.lines() {
+        let mut text = line;
 
         /* Strip comments */
         let text = if let Some(idx) = text.find('(') {
@@ -155,5 +153,32 @@ fn main() {
         let line = Line::from_str(&text).context("parsing line").unwrap();
         program.lines.push(line);
     }
+
+    program
+}
+
+fn parse_file<P: AsRef<Path>>(path: P) -> Program {
+    let mut f = File::open(path).expect("opening file");
+    let mut s = String::new();
+    f.read_to_string(&mut s).unwrap();
+    parse_string(&s)
+}
+
+fn main() {
+    let program = parse_file("data/raw_gcode.NC");
     println!("{:#?}", program);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SRC: &'static str = include_str!("../data/raw_gcode.NC");
+
+    #[bench]
+    fn bench_program(b: &mut test::Bencher) {
+        b.iter(|| {
+            let _ = parse_string(SRC);
+        });
+    }
 }
