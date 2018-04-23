@@ -60,8 +60,11 @@ impl Line {
     }
 }
 
-fn pairwise<T>(t: &[T]) -> impl Iterator<Item = (&T, &T)> {
-    assert!(t.len() % 2 == 0);
+fn pairwise<T>(t: &[T]) -> impl Iterator<Item = (&T, &T)>
+where
+    T: std::fmt::Debug,
+{
+    assert!(t.len() % 2 == 0, "{:?}", t);
     PairwiseIterator { arr: t, counter: 0 }
 }
 
@@ -128,34 +131,29 @@ impl Program {
 }
 
 fn main() {
-    let f = File::open(
-        "/Users/simon/work/MTC/data_munging/data/RAW/NCcode/NIST_MTC_CRADA_PLATE-1.NC",
-    ).expect("opening file");
+    let f = File::open("data/raw_gcode.NC").expect("opening file");
     let reader = BufReader::new(f);
 
     let mut program = Program::new();
 
     for line in reader.lines() {
-        let text = line.unwrap();
+        let mut text = line.unwrap();
 
-        if !text.starts_with("N") {
+        /* Strip comments */
+        let text = if let Some(idx) = text.find('(') {
+            &text[..idx]
+        } else {
+            &text
+        };
+
+        if text.is_empty() {
             continue;
         }
+
+        assert!(!text.contains('('));
 
         let line = Line::from_str(&text).context("parsing line").unwrap();
         program.lines.push(line);
     }
     println!("{:#?}", program);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nom::IResult;
-
-    #[test]
-    fn test_parse_integer() {
-        let i = "32";
-        assert_eq!(parse_integer(i), IResult::Done(&b""[..], 0, 32));
-    }
 }
