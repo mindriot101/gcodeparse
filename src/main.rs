@@ -1,6 +1,9 @@
 #![feature(test)]
 extern crate failure;
 extern crate test;
+#[macro_use]
+extern crate serde_derive;
+extern crate csv;
 
 use failure::{Error, ResultExt};
 use std::fs::File;
@@ -164,9 +167,69 @@ fn parse_file<P: AsRef<Path>>(path: P) -> Program {
     parse_string(&s)
 }
 
+#[derive(Debug, Serialize, Default, Clone)]
+struct Row {
+    timestamp: u64,
+    x: Option<f32>,
+    y: Option<f32>,
+    z: Option<f32>,
+}
+
+impl<'a> From<&'a Line> for Row {
+    fn from(l: &Line) -> Row {
+        let mut res = Row::default();
+        for ins in &l.instructions {
+            match ins {
+                &Instruction::X(val) => res.x = Some(val),
+                &Instruction::Y(val) => res.y = Some(val),
+                &Instruction::Z(val) => res.z = Some(val),
+                _ => {}
+            }
+        }
+        res
+    }
+}
+
+impl From<Line> for Row {
+    fn from(l: Line) -> Row {
+        From::from(&l)
+    }
+}
+
+fn compute_csv(program: Program) -> Vec<Row> {
+    let mut current: Row = From::from(&program.lines[0]);
+    let mut out = Vec::new();
+    for line in &program.lines {
+        let mut row: Row = From::from(line);
+        if let Some(xval) = &row.x {
+            current.x = Some(*xval);
+        }
+        if let Some(yval) = &row.y {
+            current.y = Some(*yval);
+        }
+        if let Some(zval) = &row.z {
+            current.z = Some(*zval);
+        }
+        out.push(current.clone());
+    }
+    out
+}
+
+fn write_csv<P: AsRef<Path>>(filename: P, csv_data: &[Row]) {
+    use std::fs::File;
+
+    let f = File::create(filename).unwrap();
+    let mut writer = csv::Writer::from_writer(f);
+
+    for row in csv_data {
+        writer.serialize(row).unwrap();
+    }
+}
+
 fn main() {
     let program = parse_file("data/raw_gcode.NC");
-    println!("{:#?}", program);
+    let csv_data = compute_csv(program);
+    write_csv("results.csv", &csv_data);
 }
 
 #[cfg(test)]
